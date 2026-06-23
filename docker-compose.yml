@@ -22,6 +22,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      DAGSTER_HOME: /dagster_home
       DATABASE_URL: postgresql+psycopg2://cts1:cts1@postgres:5432/cts1
       SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
       # SATNOGS_DB_API_TOKEN: ${SATNOGS_DB_API_TOKEN}   # uncomment when needed
@@ -32,11 +33,13 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - dagster_home:/dagster_home
 
   dagster-daemon:
     build: .
     command: dagster-daemon run -w workspace.yaml
     environment:
+      DAGSTER_HOME: /dagster_home
       DATABASE_URL: postgresql+psycopg2://cts1:cts1@postgres:5432/cts1
       SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
       SATELLITE_NORAD: "69015"
@@ -46,6 +49,8 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - dagster_home:/dagster_home
 
 volumes:
   postgres_data:
+  dagster_home:
