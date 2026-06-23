@@ -58,7 +58,6 @@ docker compose up postgres -d
 ### 2. Run database migrations
 
 ```bash
-export $(cat .env | xargs)
 uv run alembic upgrade head
 ```
 

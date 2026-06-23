@@ -50,6 +50,9 @@ ignore = [
     "D1",
     "INP001", # Implicit namespace needs __init__.py
 ]
+"migrations/versions/*.py" = [
+    "ALL", # Anything goes in this auto-gen code.
+]
 
 [tool.pyright]
 typeCheckingMode = "strict"
