@@ -9,7 +9,7 @@ Asset graph:
         │
   decoded_telemetry         (hex → field/value pairs → DB)
 
-All assets are partitioned by day. A single run materialises one calendar day
+All assets are partitioned by day. A single run materializes one calendar day
 of observations, so the pipeline is naturally incremental.
 """
 
@@ -52,7 +52,7 @@ from cts1_data_pipeline.settings import Settings
 # ---------------------------------------------------------------------------
 
 # Adjust start_date to the satellite's first observation date.
-daily_partitions = DailyPartitionsDefinition(start_date="2025-01-01")
+daily_partitions = DailyPartitionsDefinition(start_date="2026-05-01")
 
 
 # ---------------------------------------------------------------------------

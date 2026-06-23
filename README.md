@@ -22,7 +22,7 @@ SatNOGS Network API
   decoded_telemetry      ← hex → field/value pairs
 ```
 
-All four steps are Dagster software-defined assets.  Re-materialise individual
+All four steps are Dagster software-defined assets.  Re-materialize individual
 assets to re-run only the part you need (e.g., re-run demodulation with a new
 algorithm without re-downloading audio).
 
@@ -68,7 +68,7 @@ uv run alembic upgrade head
 uv run dagster-webserver -w workspace.yaml
 ```
 
-Open http://localhost:3000, then materialise the assets in order, or run the
+Open http://localhost:3000, then materialize the assets in order, or run the
 `cts1_pipeline_job` job to execute all four steps end-to-end.
 
 ### All-in-one (Docker)
