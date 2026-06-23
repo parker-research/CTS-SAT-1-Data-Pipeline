@@ -4,8 +4,6 @@ Fetches observations and downloads audio for a given satellite NORAD ID.
 All network I/O uses httpx with tenacity retries.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -30,7 +28,9 @@ def _parse_observation(raw: dict[str, Any]) -> SatnogsObservation:
     start = _dt(raw.get("start"))
     end = _dt(raw.get("end"))
     if start is None or end is None:
-        raise ValueError(f"Observation {raw.get('id')} is missing start/end timestamps.")
+        raise ValueError(
+            f"Observation {raw.get('id')} is missing start/end timestamps."
+        )
 
     return SatnogsObservation(
         observation_id=int(raw["id"]),
@@ -106,11 +106,14 @@ class SatnogsClient:
         """
         if observation.audio_url is None:
             logger.debug(
-                "Observation {} has no audio URL — skipping.", observation.observation_id
+                "Observation {} has no audio URL — skipping.",
+                observation.observation_id,
             )
             return None
 
-        with httpx.Client(headers=self._headers, timeout=120, follow_redirects=True) as client:
+        with httpx.Client(
+            headers=self._headers, timeout=120, follow_redirects=True
+        ) as client:
             try:
                 audio_bytes = self._download(client, observation.audio_url)
             except Exception as exc:
@@ -137,13 +140,17 @@ class SatnogsClient:
     # Internal helpers with retry
     # ------------------------------------------------------------------
 
-    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30))
+    @retry(
+        stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30)
+    )
     def _get(self, client: httpx.Client, url: str) -> httpx.Response:
         response = client.get(url)
         response.raise_for_status()
         return response
 
-    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30))
+    @retry(
+        stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30)
+    )
     def _download(self, client: httpx.Client, url: str) -> bytes:
         response = client.get(url)
         response.raise_for_status()

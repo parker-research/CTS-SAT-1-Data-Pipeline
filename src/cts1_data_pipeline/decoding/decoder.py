@@ -8,8 +8,6 @@ layer.  This module provides a best-effort parser — extend it as the FRONTIERS
 ICD is further documented.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from loguru import logger
@@ -31,8 +29,12 @@ class _FieldSpec:
 # Replace / extend with the real ICD byte offsets.
 # ---------------------------------------------------------------------------
 _FIELD_SPECS: list[_FieldSpec] = [
-    _FieldSpec("eps_battery_voltage_mv", byte_offset=0, byte_length=2, scale=1.0, unit="mV"),
-    _FieldSpec("eps_battery_current_ma", byte_offset=2, byte_length=2, scale=1.0, unit="mA"),
+    _FieldSpec(
+        "eps_battery_voltage_mv", byte_offset=0, byte_length=2, scale=1.0, unit="mV"
+    ),
+    _FieldSpec(
+        "eps_battery_current_ma", byte_offset=2, byte_length=2, scale=1.0, unit="mA"
+    ),
     _FieldSpec("obc_uptime_s", byte_offset=4, byte_length=4, scale=1.0, unit="s"),
     _FieldSpec("obc_temp_raw", byte_offset=8, byte_length=2, scale=0.1, unit="°C"),
 ]
@@ -55,7 +57,7 @@ def _decode_frame(hex_data: str) -> dict[str, str]:
         end = spec.byte_offset + spec.byte_length
         if end > len(raw):
             continue
-        chunk = raw[spec.byte_offset:end]
+        chunk = raw[spec.byte_offset : end]
         int_val = int.from_bytes(chunk, byteorder="big", signed=False)
         float_val = int_val * spec.scale
         formatted = f"{float_val:.4g} {spec.unit}".strip()
@@ -69,7 +71,9 @@ def _decode_frame(hex_data: str) -> dict[str, str]:
 
 def decode_frames(
     frames: list[DemodResult],
-    db_frame_id_map: dict[tuple[int, str], int],  # (obs_id, hex_data) → db demod_frame id
+    db_frame_id_map: dict[
+        tuple[int, str], int
+    ],  # (obs_id, hex_data) → db demod_frame id
     db_obs_id_map: dict[int, int],  # satnogs obs_id → db observations.id
 ) -> list[DecodedFrame]:
     """Decode all frames into DecodedFrame records.
@@ -95,7 +99,9 @@ def decode_frames(
 
         fields = _decode_frame(frame.hex_data)
         if not fields:
-            logger.debug("obs={} frame produced no decoded fields.", frame.observation_id)
+            logger.debug(
+                "obs={} frame produced no decoded fields.", frame.observation_id
+            )
             continue
 
         for name, value in fields.items():
@@ -110,5 +116,7 @@ def decode_frames(
                 )
             )
 
-    logger.info("Decoded {} telemetry field records from {} frames.", len(decoded), len(frames))
+    logger.info(
+        "Decoded {} telemetry field records from {} frames.", len(decoded), len(frames)
+    )
     return decoded

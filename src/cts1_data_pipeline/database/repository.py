@@ -1,7 +1,5 @@
 """Database engine, session factory, and repository-style helpers."""
 
-from __future__ import annotations
-
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -9,7 +7,11 @@ import sqlalchemy as sa
 from loguru import logger
 from sqlalchemy.orm import Session, sessionmaker
 
-from cts1_data_pipeline.database.schema import DecodedFieldRow, DemodFrameRow, ObservationRow
+from cts1_data_pipeline.database.schema import (
+    DecodedFieldRow,
+    DemodFrameRow,
+    ObservationRow,
+)
 from cts1_data_pipeline.models import (
     AudioFile,
     DataOrigin,
@@ -161,8 +163,4 @@ def demod_frames_for_observation(
     session: Session, db_obs_id: int
 ) -> list[DemodFrameRow]:
     """Return all demod frames for one DB observation ID."""
-    return (
-        session.query(DemodFrameRow)
-        .filter_by(observation_id=db_obs_id)
-        .all()
-    )
+    return session.query(DemodFrameRow).filter_by(observation_id=db_obs_id).all()

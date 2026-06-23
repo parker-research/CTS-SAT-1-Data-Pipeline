@@ -3,8 +3,6 @@
 Revision ID: 0001_initial
 """
 
-from __future__ import annotations
-
 import sqlalchemy as sa
 from alembic import op
 
@@ -33,7 +31,9 @@ def upgrade() -> None:
     )
     op.create_index("ix_observations_origin", "observations", ["origin"])
     op.create_index("ix_observations_external_id", "observations", ["external_id"])
-    op.create_index("ix_observations_satellite_norad", "observations", ["satellite_norad"])
+    op.create_index(
+        "ix_observations_satellite_norad", "observations", ["satellite_norad"]
+    )
     op.create_unique_constraint(
         "uq_observations_origin_external", "observations", ["origin", "external_id"]
     )
@@ -53,7 +53,9 @@ def upgrade() -> None:
         sa.Column("hex_data", sa.Text, nullable=False),
     )
     op.create_index("ix_demod_frames_origin", "demod_frames", ["origin"])
-    op.create_index("ix_demod_frames_observation_id", "demod_frames", ["observation_id"])
+    op.create_index(
+        "ix_demod_frames_observation_id", "demod_frames", ["observation_id"]
+    )
     op.create_index("ix_demod_frames_timestamp_utc", "demod_frames", ["timestamp_utc"])
 
     op.create_table(
@@ -77,9 +79,15 @@ def upgrade() -> None:
         sa.Column("field_value", sa.Text, nullable=False),
     )
     op.create_index("ix_decoded_fields_origin", "decoded_fields", ["origin"])
-    op.create_index("ix_decoded_fields_demod_frame_id", "decoded_fields", ["demod_frame_id"])
-    op.create_index("ix_decoded_fields_observation_id", "decoded_fields", ["observation_id"])
-    op.create_index("ix_decoded_fields_timestamp_utc", "decoded_fields", ["timestamp_utc"])
+    op.create_index(
+        "ix_decoded_fields_demod_frame_id", "decoded_fields", ["demod_frame_id"]
+    )
+    op.create_index(
+        "ix_decoded_fields_observation_id", "decoded_fields", ["observation_id"]
+    )
+    op.create_index(
+        "ix_decoded_fields_timestamp_utc", "decoded_fields", ["timestamp_utc"]
+    )
 
 
 def downgrade() -> None:

@@ -4,8 +4,6 @@ Run migrations with:
     alembic -c migrations/alembic.ini upgrade head
 """
 
-from __future__ import annotations
-
 import os
 from logging.config import fileConfig
 

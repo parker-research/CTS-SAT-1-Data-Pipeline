@@ -10,8 +10,6 @@ Asset graph:
   decoded_telemetry         (hex → field/value pairs → DB)
 """
 
-from __future__ import annotations
-
 import polars as pl
 from dagster import (
     AssetExecutionContext,
@@ -138,7 +136,9 @@ def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     # Re-fetch metadata to get audio URLs (SatNOGS API is paginated)
     all_observations = client.fetch_all_observations()
     to_download = [
-        obs for obs in all_observations if obs.observation_id in external_ids_needing_audio
+        obs
+        for obs in all_observations
+        if obs.observation_id in external_ids_needing_audio
     ]
 
     downloaded: list[int] = []
@@ -154,9 +154,7 @@ def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
             upsert_observation(session, obs, audio=audio)
         downloaded.append(obs.observation_id)
 
-    context.add_output_metadata(
-        {"downloaded": len(downloaded), "failed": len(failed)}
-    )
+    context.add_output_metadata({"downloaded": len(downloaded), "failed": len(failed)})
 
     return Output(
         pl.DataFrame(
@@ -283,9 +281,7 @@ def decoded_telemetry(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     # Build lookup maps
     db_frame_id_map: dict[tuple[int, str], int] = {}
     for frame_row in pending:
-        obs_row = next(
-            (o for o in obs_rows if o.id == frame_row.observation_id), None
-        )
+        obs_row = next((o for o in obs_rows if o.id == frame_row.observation_id), None)
         if obs_row is None:
             continue
         key = (obs_row.external_id, frame_row.hex_data)

@@ -4,8 +4,6 @@ Runs gr_satellites in parallel subprocesses (one per observation audio file)
 using a thread pool.  Parses the hexdump output into DemodResult dataclasses.
 """
 
-from __future__ import annotations
-
 import re
 import subprocess
 import tempfile
@@ -16,10 +14,17 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from cts1_data_pipeline.models import AudioFile, DataOrigin, DemodAlgorithm, DemodBatch, DemodResult
+from cts1_data_pipeline.models import (
+    AudioFile,
+    DataOrigin,
+    DemodAlgorithm,
+    DemodBatch,
+    DemodResult,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
+
     pass
 
 # gr_satellites hexdump line format (from --hexdump output):
@@ -154,6 +159,8 @@ class DemodRunner:
                     batch = future.result()
                     batches.append(batch)
                 except Exception as exc:
-                    logger.error("Unexpected error demodulating obs={}: {}", obs_id, exc)
+                    logger.error(
+                        "Unexpected error demodulating obs={}: {}", obs_id, exc
+                    )
 
         return batches

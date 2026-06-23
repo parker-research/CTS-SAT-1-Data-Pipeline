@@ -5,8 +5,6 @@ Designed for future extensibility:
 - The schema is satellite-agnostic so non-SatNOGS sources can be added later.
 """
 
-from __future__ import annotations
-
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -29,22 +27,32 @@ class ObservationRow(Base):
     external_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, index=True)
 
     satellite_norad: Mapped[int] = mapped_column(sa.Integer, nullable=False, index=True)
-    start_utc: Mapped[sa.DateTime] = mapped_column(sa.DateTime(timezone=False), nullable=False)
-    end_utc: Mapped[sa.DateTime] = mapped_column(sa.DateTime(timezone=False), nullable=False)
+    start_utc: Mapped[sa.DateTime] = mapped_column(
+        sa.DateTime(timezone=False), nullable=False
+    )
+    end_utc: Mapped[sa.DateTime] = mapped_column(
+        sa.DateTime(timezone=False), nullable=False
+    )
     transmitter: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
     status: Mapped[str] = mapped_column(sa.String(64), nullable=False, default="")
-    vetted_status: Mapped[str] = mapped_column(sa.String(64), nullable=False, default="")
+    vetted_status: Mapped[str] = mapped_column(
+        sa.String(64), nullable=False, default=""
+    )
 
     # Audio content stored inline; no local file paths.
     audio_data: Mapped[bytes | None] = mapped_column(sa.LargeBinary, nullable=True)
-    audio_content_type: Mapped[str | None] = mapped_column(sa.String(128), nullable=True)
+    audio_content_type: Mapped[str | None] = mapped_column(
+        sa.String(128), nullable=True
+    )
 
     # TLE snapshot at time of observation
     tle_line1: Mapped[str | None] = mapped_column(sa.String(256), nullable=True)
     tle_line2: Mapped[str | None] = mapped_column(sa.String(256), nullable=True)
 
     __table_args__ = (
-        sa.UniqueConstraint("origin", "external_id", name="uq_observations_origin_external"),
+        sa.UniqueConstraint(
+            "origin", "external_id", name="uq_observations_origin_external"
+        ),
     )
 
 

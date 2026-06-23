@@ -1,7 +1,5 @@
 """Core domain dataclasses shared across the pipeline."""
 
-from __future__ import annotations
-
 import enum
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING

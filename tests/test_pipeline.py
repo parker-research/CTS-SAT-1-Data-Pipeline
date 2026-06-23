@@ -1,7 +1,5 @@
 """Unit tests for demodulation parsing and decoding logic."""
 
-from __future__ import annotations
-
 from datetime import UTC, datetime
 
 from cts1_data_pipeline.decoding.decoder import _decode_frame

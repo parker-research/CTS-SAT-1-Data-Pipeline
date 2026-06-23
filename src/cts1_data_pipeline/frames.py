@@ -1,7 +1,5 @@
 """Polars / Dataframely schemas for structured data in the pipeline."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Annotated
 
 import dataframely as dy
