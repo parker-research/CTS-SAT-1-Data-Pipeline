@@ -12,13 +12,13 @@ class Settings:
     """
 
     # --- SatNOGS ---
-    # Network API token — used to authenticate against network.satnogs.org
+    # Network API key — used to authenticate against network.satnogs.org
     # Required for fetching observations and downloading audio.
-    satnogs_network_api_token: str
+    satnogs_network_api_key: str
 
-    # DB API token — used against db.satnogs.org (satellite metadata, TLEs, etc.)
+    # DB API key — used against db.satnogs.org (satellite metadata, TLEs, etc.)
     # Not currently needed by the pipeline but reserved for future use.
-    satnogs_db_api_token: str | None
+    satnogs_db_api_key: str | None
 
     # NORAD ID of the satellite to ingest
     satellite_norad: int
@@ -47,8 +47,8 @@ class Settings:
             return value
 
         return cls(
-            satnogs_network_api_token=_require("SATNOGS_NETWORK_API_TOKEN"),
-            satnogs_db_api_token=os.environ.get("SATNOGS_DB_API_TOKEN"),
+            satnogs_network_api_key=_require("SATNOGS_NETWORK_API_KEY"),
+            satnogs_db_api_key=os.environ.get("SATNOGS_DB_API_KEY"),
             satellite_norad=int(_require("SATELLITE_NORAD")),
             database_url=_require("DATABASE_URL"),
             max_parallel_demod=int(os.environ.get("MAX_PARALLEL_DEMOD", "4")),

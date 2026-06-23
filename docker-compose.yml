@@ -24,8 +24,8 @@ services:
     environment:
       DAGSTER_HOME: /dagster_home
       DATABASE_URL: postgresql+psycopg2://cts1:cts1@postgres:5432/cts1
-      SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
-      # SATNOGS_DB_API_TOKEN: ${SATNOGS_DB_API_TOKEN}   # uncomment when needed
+      SATNOGS_NETWORK_API_KEY: ${SATNOGS_NETWORK_API_KEY}
+      # SATNOGS_DB_API_KEY: ${SATNOGS_DB_API_KEY}   # uncomment when needed
       SATELLITE_NORAD: "69015"
       MAX_PARALLEL_DEMOD: "4"
     depends_on:
@@ -41,7 +41,7 @@ services:
     environment:
       DAGSTER_HOME: /dagster_home
       DATABASE_URL: postgresql+psycopg2://cts1:cts1@postgres:5432/cts1
-      SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
+      SATNOGS_NETWORK_API_KEY: ${SATNOGS_NETWORK_API_KEY}
       SATELLITE_NORAD: "69015"
       MAX_PARALLEL_DEMOD: "4"
     depends_on:

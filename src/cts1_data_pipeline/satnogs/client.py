@@ -1,18 +1,25 @@
-"""SatNOGS Network API client.
+"""SatNOGS Network API client."""
 
-Fetches observations and downloads audio for a given satellite NORAD ID.
-All network I/O uses httpx with tenacity retries.
-"""
-
-from datetime import datetime
+import re
+from collections.abc import Iterator, Mapping
+from datetime import UTC, datetime
 from typing import Any
 
-import httpx
+import requests
 from loguru import logger
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 from cts1_data_pipeline.models import AudioFile, SatnogsObservation
 from cts1_data_pipeline.settings import Settings
+
+_LINK_NEXT_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
+_DATETIME_FMT = "%Y-%m-%dT%H:%M:%S"
+
+
+def _next_url_from_headers(headers: Mapping[str, str]) -> str | None:
+    """Extract the next-page URL from a Link header, or None if absent."""
+    link = headers.get("Link", "")
+    m = _LINK_NEXT_RE.search(link)
+    return m.group(1) if m else None
 
 
 def _parse_observation(raw: dict[str, Any]) -> SatnogsObservation:
@@ -48,16 +55,48 @@ class SatnogsClient:
     """Thin wrapper around the SatNOGS Network REST API."""
 
     def __init__(self, settings: Settings) -> None:
-        """Initialize a new SatNOGS client."""
+        """Construct a new SatnogsClient."""
         self._base = settings.satnogs_network_base_url.rstrip("/")
-        self._headers = {
-            "Authorization": f"Token {settings.satnogs_network_api_token}",
-        }
+        self._headers = {"Authorization": f"Token {settings.satnogs_network_api_key}"}
         self._norad = settings.satellite_norad
 
     # ------------------------------------------------------------------
     # Observation listing
     # ------------------------------------------------------------------
+
+    def _iter_observation_pages(
+        self,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> Iterator[list[dict[str, Any]]]:
+        """Yield pages of observations, following Link-header cursor pagination.
+
+        Args:
+            start: Only return observations whose start time is >= this value.
+            end: Only return observations whose start time is < this value.
+
+        """
+        url: str | None = f"{self._base}/observations/"
+        params: dict[str, Any] = {
+            "norad_cat_id": self._norad,
+            "format": "json",
+            "page_size": 100,
+        }
+        if start is not None:
+            params["start"] = start.astimezone(UTC).strftime(_DATETIME_FMT)
+        if end is not None:
+            params["start__lt"] = end.astimezone(UTC).strftime(_DATETIME_FMT)
+
+        while url is not None:
+            logger.debug("GET {}", url)
+            r = requests.get(url, params=params, headers=self._headers, timeout=15)
+            r.raise_for_status()
+            page: list[dict[str, Any]] = r.json()
+            assert isinstance(page, list), f"expected list, got {type(page)}"  # noqa: S101
+            if page:
+                yield page
+            url = _next_url_from_headers(r.headers)
+            params = {}  # cursor URL already encodes all query params
 
     def fetch_all_observations(
         self,
@@ -69,37 +108,15 @@ class SatnogsClient:
         Args:
             start: Only return observations that started at or after this time (UTC).
             end: Only return observations that started before this time (UTC).
+
         """
         observations: list[SatnogsObservation] = []
-        params = f"?satellite__norad_cat_id={self._norad}&format=json"
-        if start is not None:
-            params += f"&start={start.strftime('%Y-%m-%dT%H:%M:%S')}"
-        if end is not None:
-            params += f"&end={end.strftime('%Y-%m-%dT%H:%M:%S')}"
-        url: str | None = f"{self._base}/observations/{params}"
-
-        with httpx.Client(headers=self._headers, timeout=30) as client:
-            while url is not None:
-                logger.debug("GET {}", url)
-                response = self._get(client, url)
-                data: dict[str, Any] | list[Any] = response.json()
-
-                # The API returns either a list or a paginated dict
-                results: list[Any]
-                if isinstance(data, list):
-                    results = data
-                    url = None
-                else:
-                    results = data.get("results", [])
-                    url = data.get("next")
-
-                for raw in results:
-                    try:
-                        obs = _parse_observation(raw)
-                        observations.append(obs)
-                    except (KeyError, ValueError) as exc:
-                        logger.warning("Skipping malformed observation: {}", exc)
-
+        for page in self._iter_observation_pages(start=start, end=end):
+            for raw in page:
+                try:
+                    observations.append(_parse_observation(raw))
+                except (KeyError, ValueError) as exc:
+                    logger.warning("Skipping malformed observation: {}", exc)
         logger.info(
             "Fetched {} observations for NORAD {}", len(observations), self._norad
         )
@@ -110,10 +127,7 @@ class SatnogsClient:
     # ------------------------------------------------------------------
 
     def download_audio(self, observation: SatnogsObservation) -> AudioFile | None:
-        """Download the audio payload for an observation.
-
-        Returns None if no audio URL exists or the download fails.
-        """
+        """Download the audio payload for an observation, or None if unavailable."""
         if observation.audio_url is None:
             logger.debug(
                 "Observation {} has no audio URL — skipping.",
@@ -121,47 +135,27 @@ class SatnogsClient:
             )
             return None
 
-        with httpx.Client(
-            headers=self._headers, timeout=120, follow_redirects=True
-        ) as client:
-            try:
-                audio_bytes = self._download(client, observation.audio_url)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "Failed to download audio for observation {}: {}",
-                    observation.observation_id,
-                    exc,
-                )
-                return None
+        r = requests.get(
+            observation.audio_url,
+            headers=self._headers,
+            timeout=120,
+            allow_redirects=True,
+        )
+        if not r.ok:
+            logger.warning(
+                "Failed to download audio for observation {}: HTTP {}",
+                observation.observation_id,
+                r.status_code,
+            )
+            return None
 
-        content_type = "audio/ogg"  # SatNOGS typically serves ogg
         logger.info(
             "Downloaded {:.1f} KB for observation {}",
-            len(audio_bytes) / 1024,
+            len(r.content) / 1024,
             observation.observation_id,
         )
         return AudioFile(
             observation_id=observation.observation_id,
-            content_type=content_type,
-            data=audio_bytes,
+            content_type=r.headers.get("Content-Type", "audio/ogg"),
+            data=r.content,
         )
-
-    # ------------------------------------------------------------------
-    # Internal helpers with retry
-    # ------------------------------------------------------------------
-
-    @retry(
-        stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30)
-    )
-    def _get(self, client: httpx.Client, url: str) -> httpx.Response:
-        response = client.get(url)
-        response.raise_for_status()
-        return response
-
-    @retry(
-        stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30)
-    )
-    def _download(self, client: httpx.Client, url: str) -> bytes:
-        response = client.get(url)
-        response.raise_for_status()
-        return response.content

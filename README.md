@@ -39,8 +39,8 @@ Key variables:
 
 | Variable | Description |
 |---|---|
-| `SATNOGS_NETWORK_API_TOKEN` | Network API token (required). From https://network.satnogs.org/accounts/api-auth-token/ |
-| `SATNOGS_DB_API_TOKEN` | DB API token (not currently used). From https://db.satnogs.org/accounts/api-auth-token/ |
+| `SATNOGS_NETWORK_API_KEY` | Network API key (required). From https://network.satnogs.org/accounts/api-auth-token/ |
+| `SATNOGS_DB_API_KEY` | DB API key (not currently used). From https://db.satnogs.org/accounts/api-auth-token/ |
 | `SATELLITE_NORAD` | NORAD ID to ingest (default: 69015) |
 | `DATABASE_URL` | SQLAlchemy URL for PostgreSQL |
 | `MAX_PARALLEL_DEMOD` | Concurrent `gr_satellites` subprocesses (default: 4) |
