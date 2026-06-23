@@ -1,10 +1,12 @@
 # CTS-1 Data Pipeline
 
-Fetches every observation of **FRONTIERSAT (NORAD 69015)** from SatNOGS Network,
-downloads the audio, demodulates it with `gr_satellites`, stores the raw frames in
-PostgreSQL, and decodes the telemetry — all orchestrated by Dagster.
+Data processing pipeline for CTS-SAT-1 data
 
----
+## Overview
+
+This project pulls overpass downlink logs from the public SatNOGS network, performs demodulation, and stores the results in a clean Postgres SQL database.
+
+This project does not use nor present any secret or internal-only data.
 
 ## Architecture
 
