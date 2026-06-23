@@ -5,6 +5,8 @@ Designed for future extensibility:
 - The schema is satellite-agnostic so non-SatNOGS sources can be added later.
 """
 
+from datetime import datetime
+
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -27,10 +29,10 @@ class ObservationRow(Base):
     external_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False, index=True)
 
     satellite_norad: Mapped[int] = mapped_column(sa.Integer, nullable=False, index=True)
-    start_utc: Mapped[sa.DateTime] = mapped_column(
+    start_utc: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=False), nullable=False
     )
-    end_utc: Mapped[sa.DateTime] = mapped_column(
+    end_utc: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=False), nullable=False
     )
     transmitter: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
@@ -78,7 +80,7 @@ class DemodFrameRow(Base):
     algorithm: Mapped[str] = mapped_column(sa.String(128), nullable=False)
 
     # Timestamp extracted from gr_satellites output (best available)
-    timestamp_utc: Mapped[sa.DateTime] = mapped_column(
+    timestamp_utc: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=False), nullable=False, index=True
     )
 
@@ -110,7 +112,7 @@ class DecodedFieldRow(Base):
         index=True,
     )
 
-    timestamp_utc: Mapped[sa.DateTime] = mapped_column(
+    timestamp_utc: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=False), nullable=False, index=True
     )
 

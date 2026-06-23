@@ -2,10 +2,7 @@
 
 import enum
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from datetime import datetime
+from datetime import datetime
 
 
 class DataOrigin(enum.StrEnum):
@@ -64,7 +61,7 @@ class DemodBatch:
 
     observation_id: int
     algorithm: DemodAlgorithm
-    frames: list[DemodResult] = field(default_factory=list)
+    frames: list[DemodResult] = field(default_factory=list[DemodResult])
     returncode: int = 0
     stderr: str = ""
 

@@ -33,13 +33,17 @@ class Settings:
     satnogs_network_base_url: str = "https://network.satnogs.org/api"
 
     @classmethod
-    def from_env(cls) -> Settings:
-        """Build Settings from environment variables, raising on missing required ones."""
+    def from_env(cls) -> "Settings":
+        """Build Settings from environment variables, raising on missing required ones.
+
+        Returns Self.
+        """
 
         def _require(key: str) -> str:
             value = os.environ.get(key)
             if not value:
-                raise OSError(f"Required environment variable {key!r} is not set.")
+                msg = f"Required environment variable {key!r} is not set."
+                raise OSError(msg)
             return value
 
         return cls(

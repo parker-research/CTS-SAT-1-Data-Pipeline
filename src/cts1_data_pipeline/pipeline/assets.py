@@ -17,7 +17,7 @@ from dagster import (
     Output,
     ResourceDefinition,
     asset,
-    define_asset_job,
+    define_asset_job,  # pyright: ignore[reportUnknownVariableType]
 )
 from loguru import logger
 
@@ -30,9 +30,14 @@ from cts1_data_pipeline.database.repository import (
     session_scope,
     upsert_observation,
 )
+from cts1_data_pipeline.database.schema import (
+    DecodedFieldRow,
+    DemodFrameRow,
+    ObservationRow,
+)
 from cts1_data_pipeline.decoding.decoder import decode_frames
 from cts1_data_pipeline.demodulation.runner import DemodRunner
-from cts1_data_pipeline.models import AudioFile, DataOrigin, DemodResult
+from cts1_data_pipeline.models import AudioFile, DataOrigin, DemodAlgorithm, DemodResult
 from cts1_data_pipeline.satnogs.client import SatnogsClient
 from cts1_data_pipeline.settings import Settings
 
@@ -114,8 +119,6 @@ def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     engine = make_engine(settings)
     factory = make_session_factory(engine)
 
-    from cts1_data_pipeline.database.schema import ObservationRow
-
     with session_scope(factory) as session:
         # Find rows that have no audio yet but originated from SatNOGS
         # We can't store audio_url in DB (no local paths policy extends to URLs
@@ -180,8 +183,6 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     settings: Settings = context.resources.settings  # type: ignore[attr-defined]
     engine = make_engine(settings)
     factory = make_session_factory(engine)
-
-    from cts1_data_pipeline.database.schema import DemodFrameRow, ObservationRow
 
     with session_scope(factory) as session:
         obs_rows: list[ObservationRow] = (
@@ -256,11 +257,8 @@ def decoded_telemetry(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     engine = make_engine(settings)
     factory = make_session_factory(engine)
 
-    from cts1_data_pipeline.database.schema import DemodFrameRow, ObservationRow
-
     with session_scope(factory) as session:
         # Frames that haven't been decoded yet (no matching decoded_fields rows)
-        from cts1_data_pipeline.database.schema import DecodedFieldRow
 
         decoded_frame_ids: set[int] = {
             row.demod_frame_id
@@ -286,9 +284,7 @@ def decoded_telemetry(context: AssetExecutionContext) -> Output[pl.DataFrame]:
 
     db_obs_id_map: dict[int, int] = {row.external_id: row.id for row in obs_rows}
 
-    # Convert ORM rows to domain models for the decoder
-    from cts1_data_pipeline.models import DemodAlgorithm
-
+    # Convert ORM rows to domain models for the decoder.
     domain_frames: list[DemodResult] = []
     for frame_row in pending:
         obs_row = next((o for o in obs_rows if o.id == frame_row.observation_id), None)

@@ -73,9 +73,10 @@ class SatnogsClient:
             while url is not None:
                 logger.debug("GET {}", url)
                 response = self._get(client, url)
-                data = response.json()
+                data: dict[str, Any] | list[Any] = response.json()
 
                 # The API returns either a list or a paginated dict
+                results: list[Any]
                 if isinstance(data, list):
                     results = data
                     url = None

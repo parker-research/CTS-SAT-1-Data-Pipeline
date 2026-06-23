@@ -41,7 +41,6 @@ Key variables:
 | `SATNOGS_DB_API_TOKEN` | DB API token (not currently used). From https://db.satnogs.org/accounts/api-auth-token/ |
 | `SATELLITE_NORAD` | NORAD ID to ingest (default: 69015) |
 | `DATABASE_URL` | SQLAlchemy URL for PostgreSQL |
-| `GR_SATELLITES_CONFIG` | Absolute path to `config/frontiersat.yml` |
 | `MAX_PARALLEL_DEMOD` | Concurrent `gr_satellites` subprocesses (default: 4) |
 
 ---
@@ -58,13 +57,13 @@ docker compose up postgres -d
 
 ```bash
 export $(cat .env | xargs)
-alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ### 3. Start Dagster
 
 ```bash
-dagster-webserver -w workspace.yaml
+uv run dagster-webserver -w workspace.yaml
 ```
 
 Open http://localhost:3000, then materialise the assets in order, or run the
@@ -77,22 +76,6 @@ docker compose up
 ```
 
 The webserver is available at http://localhost:3000.
-
----
-
-## gr_satellites usage
-
-The pipeline uses:
-
-```bash
-gr_satellites config/frontiersat.yml --hexdump --wavfile <tempfile.wav>
-```
-
-Audio is written to a temporary file, `gr_satellites` runs, the temp file is
-deleted, and the hexdump output is parsed.  No audio paths are persisted to the
-database.
-
----
 
 ## Database schema
 

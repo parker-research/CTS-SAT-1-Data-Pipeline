@@ -1,43 +1,38 @@
 """Polars / Dataframely schemas for structured data in the pipeline."""
 
-from typing import TYPE_CHECKING, Annotated
-
 import dataframely as dy
-
-if TYPE_CHECKING:
-    import polars as pl
 
 
 class ObservationSchema(dy.Schema):
     """Schema for a DataFrame of SatNOGS observations."""
 
-    observation_id: Annotated[pl.Int64, dy.Column()]
-    origin: Annotated[pl.String, dy.Column()]
-    satellite_norad: Annotated[pl.Int64, dy.Column()]
-    start_utc: Annotated[pl.Datetime, dy.Column()]
-    end_utc: Annotated[pl.Datetime, dy.Column()]
-    transmitter: Annotated[pl.String, dy.Column()]
-    status: Annotated[pl.String, dy.Column()]
-    vetted_status: Annotated[pl.String, dy.Column()]
-    has_audio: Annotated[pl.Boolean, dy.Column()]
+    observation_id = dy.Int64()
+    origin = dy.String()
+    satellite_norad = dy.Int64()
+    start_utc = dy.Datetime()
+    end_utc = dy.Datetime()
+    transmitter = dy.String()
+    status = dy.String()
+    vetted_status = dy.String()
+    has_audio = dy.Bool()
 
 
 class DemodFrameSchema(dy.Schema):
     """Schema for a DataFrame of demodulated frames."""
 
-    observation_id: Annotated[pl.Int64, dy.Column()]
-    origin: Annotated[pl.String, dy.Column()]
-    algorithm: Annotated[pl.String, dy.Column()]
-    timestamp_utc: Annotated[pl.Datetime, dy.Column()]
-    hex_data: Annotated[pl.String, dy.Column()]
+    observation_id = dy.Int64()
+    origin = dy.String()
+    algorithm = dy.String()
+    timestamp_utc = dy.Datetime()
+    hex_data = dy.String()
 
 
 class DecodedFieldSchema(dy.Schema):
     """Schema for a DataFrame of decoded telemetry fields."""
 
-    demod_frame_id: Annotated[pl.Int64, dy.Column()]
-    observation_id: Annotated[pl.Int64, dy.Column()]
-    origin: Annotated[pl.String, dy.Column()]
-    timestamp_utc: Annotated[pl.Datetime, dy.Column()]
-    field_name: Annotated[pl.String, dy.Column()]
-    field_value: Annotated[pl.String, dy.Column()]
+    demod_frame_id = dy.Int64()
+    observation_id = dy.Int64()
+    origin = dy.String()
+    timestamp_utc = dy.Datetime()
+    field_name = dy.String()
+    field_value = dy.String()

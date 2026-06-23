@@ -1,7 +1,7 @@
 """Database engine, session factory, and repository-style helpers."""
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
 from loguru import logger
@@ -19,11 +19,7 @@ from cts1_data_pipeline.models import (
     DemodResult,
     SatnogsObservation,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-
-    from cts1_data_pipeline.settings import Settings
+from cts1_data_pipeline.settings import Settings
 
 
 def make_engine(settings: Settings) -> sa.Engine:
@@ -39,7 +35,7 @@ def make_session_factory(engine: sa.Engine) -> sessionmaker[Session]:
 
 
 @contextmanager
-def session_scope(factory: sessionmaker[Session]) -> Generator[Session, None, None]:
+def session_scope(factory: sessionmaker[Session]) -> Generator[Session]:
     """Context manager providing a transactional session."""
     session = factory()
     try:

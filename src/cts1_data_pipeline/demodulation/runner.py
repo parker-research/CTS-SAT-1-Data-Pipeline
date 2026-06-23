@@ -43,9 +43,11 @@ def _parse_hexdump_line(line: str) -> tuple[datetime, str] | None:
     for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
         try:
             ts = datetime.strptime(ts_str, fmt).replace(tzinfo=UTC)
-            return ts, hex_data
+
         except ValueError:
             continue
+        else:
+            return ts, hex_data
     return None
 
 
@@ -74,7 +76,7 @@ def _run_gr_satellites_wav(
         logger.debug("obs={} cmd={}", observation_id, " ".join(cmd))
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: PLW1510, S603
                 cmd,
                 capture_output=True,
                 text=True,
@@ -152,7 +154,7 @@ class DemodRunner:
                 try:
                     batch = future.result()
                     batches.append(batch)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     logger.error(
                         "Unexpected error demodulating obs={}: {}", obs_id, exc
                     )
