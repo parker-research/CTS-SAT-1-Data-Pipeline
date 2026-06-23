@@ -24,22 +24,6 @@ All four steps are Dagster software-defined assets.  Re-materialise individual
 assets to re-run only the part you need (e.g., re-run demodulation with a new
 algorithm without re-downloading audio).
 
----
-
-## Prerequisites
-
-- Python 3.11+
-- Docker + Docker Compose
-- `gr_satellites` installed and on `PATH`
-
-Install Python dependencies:
-
-```bash
-pip install -e ".[dev]"
-```
-
----
-
 ## Configuration
 
 Copy `.env.example` to `.env` and fill in your values:
