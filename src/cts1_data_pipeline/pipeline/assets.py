@@ -212,10 +212,7 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     # Map external_id → db row id
     ext_to_db_id = {row.external_id: row.id for row in to_demod}
 
-    runner = DemodRunner(
-        satellite_config=settings.gr_satellites_config,
-        max_workers=settings.max_parallel_demod,
-    )
+    runner = DemodRunner(max_workers=settings.max_parallel_demod)
     batches = runner.run_all(audio_files)
 
     frame_counts: dict[int, int] = {}

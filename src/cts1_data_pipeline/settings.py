@@ -2,7 +2,6 @@
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -28,7 +27,6 @@ class Settings:
     database_url: str  # e.g. postgresql+psycopg2://user:pass@localhost:5432/cts1
 
     # --- gr_satellites ---
-    gr_satellites_config: Path  # absolute path to the .yml satellite definition
     max_parallel_demod: int  # how many gr_satellites subprocesses to run at once
 
     # --- SatNOGS Network base URL (override for testing) ---
@@ -49,7 +47,6 @@ class Settings:
             satnogs_db_api_token=os.environ.get("SATNOGS_DB_API_TOKEN"),
             satellite_norad=int(_require("SATELLITE_NORAD")),
             database_url=_require("DATABASE_URL"),
-            gr_satellites_config=Path(_require("GR_SATELLITES_CONFIG")),
             max_parallel_demod=int(os.environ.get("MAX_PARALLEL_DEMOD", "4")),
             satnogs_network_base_url=os.environ.get(
                 "SATNOGS_NETWORK_BASE_URL", "https://network.satnogs.org/api"

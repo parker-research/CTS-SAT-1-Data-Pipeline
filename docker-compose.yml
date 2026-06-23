@@ -26,7 +26,6 @@ services:
       SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
       # SATNOGS_DB_API_TOKEN: ${SATNOGS_DB_API_TOKEN}   # uncomment when needed
       SATELLITE_NORAD: "69015"
-      GR_SATELLITES_CONFIG: /app/config/frontiersat.yml
       MAX_PARALLEL_DEMOD: "4"
     depends_on:
       postgres:
@@ -41,7 +40,6 @@ services:
       DATABASE_URL: postgresql+psycopg2://cts1:cts1@postgres:5432/cts1
       SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
       SATELLITE_NORAD: "69015"
-      GR_SATELLITES_CONFIG: /app/config/frontiersat.yml
       MAX_PARALLEL_DEMOD: "4"
     depends_on:
       postgres:

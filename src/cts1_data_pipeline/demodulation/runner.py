@@ -10,7 +10,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from loguru import logger
 
@@ -22,10 +22,7 @@ from cts1_data_pipeline.models import (
     DemodResult,
 )
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    pass
+_SATELLITE_CONFIG = Path(__file__).parent / "frontiersat.yml"
 
 # gr_satellites hexdump line format (from --hexdump output):
 #   2024-03-15 12:34:56.789 [hexdump] XX XX XX XX ...
@@ -53,7 +50,6 @@ def _parse_hexdump_line(line: str) -> tuple[datetime, str] | None:
 
 
 def _run_gr_satellites_wav(
-    satellite_config: Path,
     audio_data: bytes,
     observation_id: int,
 ) -> DemodBatch:
@@ -70,7 +66,7 @@ def _run_gr_satellites_wav(
 
         cmd = [
             "gr_satellites",
-            str(satellite_config),
+            str(_SATELLITE_CONFIG),
             "--hexdump",
             "--wavfile",
             tmp_path,
@@ -132,9 +128,8 @@ def _run_gr_satellites_wav(
 
 @dataclass
 class DemodRunner:
-    """Parallelised demodulation runner."""
+    """Parallelized demodulation runner."""
 
-    satellite_config: Path
     max_workers: int = 4
 
     def run_all(self, audio_files: list[AudioFile]) -> list[DemodBatch]:
@@ -147,7 +142,6 @@ class DemodRunner:
             futures = {
                 pool.submit(
                     _run_gr_satellites_wav,
-                    self.satellite_config,
                     af.data,
                     af.observation_id,
                 ): af.observation_id
