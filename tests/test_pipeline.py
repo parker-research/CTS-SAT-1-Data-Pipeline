@@ -2,8 +2,12 @@
 
 from datetime import UTC, datetime
 
-from cts1_data_pipeline.decoding.decoder import _decode_frame  # pyright: ignore[reportPrivateUsage]
-from cts1_data_pipeline.demodulation.runner import _parse_hexdump_line  # pyright: ignore[reportPrivateUsage]
+from cts1_data_pipeline.decoding.decoder import (
+    _decode_frame,  # pyright: ignore[reportPrivateUsage]
+)
+from cts1_data_pipeline.demodulation.runner import (
+    _parse_hexdump_line,  # pyright: ignore[reportPrivateUsage]
+)
 
 
 class TestParseHexdumpLine:

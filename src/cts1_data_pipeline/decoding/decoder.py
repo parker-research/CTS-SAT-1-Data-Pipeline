@@ -85,6 +85,7 @@ def decode_frames(
 
     Returns:
         Flat list of DecodedFrame for all successfully decoded fields.
+
     """
     decoded: list[DecodedFrame] = []
 

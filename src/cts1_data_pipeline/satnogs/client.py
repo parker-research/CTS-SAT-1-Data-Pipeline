@@ -5,16 +5,14 @@ All network I/O uses httpx with tenacity retries.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from cts1_data_pipeline.models import AudioFile, SatnogsObservation
-
-if TYPE_CHECKING:
-    from cts1_data_pipeline.settings import Settings
+from cts1_data_pipeline.settings import Settings
 
 
 def _parse_observation(raw: dict[str, Any]) -> SatnogsObservation:
@@ -28,9 +26,8 @@ def _parse_observation(raw: dict[str, Any]) -> SatnogsObservation:
     start = _dt(raw.get("start"))
     end = _dt(raw.get("end"))
     if start is None or end is None:
-        raise ValueError(
-            f"Observation {raw.get('id')} is missing start/end timestamps."
-        )
+        msg = f"Observation {raw.get('id')} is missing start/end timestamps."
+        raise ValueError(msg)
 
     return SatnogsObservation(
         observation_id=int(raw["id"]),
@@ -51,6 +48,7 @@ class SatnogsClient:
     """Thin wrapper around the SatNOGS Network REST API."""
 
     def __init__(self, settings: Settings) -> None:
+        """Initialize a new SatNOGS client."""
         self._base = settings.satnogs_network_base_url.rstrip("/")
         self._headers = {
             "Authorization": f"Token {settings.satnogs_network_api_token}",
@@ -117,7 +115,7 @@ class SatnogsClient:
         ) as client:
             try:
                 audio_bytes = self._download(client, observation.audio_url)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Failed to download audio for observation {}: {}",
                     observation.observation_id,
