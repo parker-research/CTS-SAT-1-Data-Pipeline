@@ -59,13 +59,24 @@ class SatnogsClient:
     # Observation listing
     # ------------------------------------------------------------------
 
-    def fetch_all_observations(self) -> list[SatnogsObservation]:
-        """Paginate through all observations for the configured NORAD ID."""
+    def fetch_all_observations(
+        self,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[SatnogsObservation]:
+        """Paginate through all observations for the configured NORAD ID.
+
+        Args:
+            start: Only return observations that started at or after this time (UTC).
+            end: Only return observations that started before this time (UTC).
+        """
         observations: list[SatnogsObservation] = []
-        url: str | None = (
-            f"{self._base}/observations/"
-            f"?satellite__norad_cat_id={self._norad}&format=json"
-        )
+        params = f"?satellite__norad_cat_id={self._norad}&format=json"
+        if start is not None:
+            params += f"&start={start.strftime('%Y-%m-%dT%H:%M:%S')}"
+        if end is not None:
+            params += f"&end={end.strftime('%Y-%m-%dT%H:%M:%S')}"
+        url: str | None = f"{self._base}/observations/{params}"
 
         with httpx.Client(headers=self._headers, timeout=30) as client:
             while url is not None:

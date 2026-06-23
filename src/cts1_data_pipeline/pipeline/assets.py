@@ -8,11 +8,17 @@ Asset graph:
   demodulated_frames        (gr_satellites runs → DB)
         │
   decoded_telemetry         (hex → field/value pairs → DB)
+
+All assets are partitioned by day. A single run materialises one calendar day
+of observations, so the pipeline is naturally incremental.
 """
+
+from datetime import datetime
 
 import polars as pl
 from dagster import (
     AssetExecutionContext,
+    DailyPartitionsDefinition,
     Definitions,
     Output,
     ResourceDefinition,
@@ -42,6 +48,14 @@ from cts1_data_pipeline.satnogs.client import SatnogsClient
 from cts1_data_pipeline.settings import Settings
 
 # ---------------------------------------------------------------------------
+# Partition definition
+# ---------------------------------------------------------------------------
+
+# Adjust start_date to the satellite's first observation date.
+daily_partitions = DailyPartitionsDefinition(start_date="2025-01-01")
+
+
+# ---------------------------------------------------------------------------
 # Resources
 # ---------------------------------------------------------------------------
 
@@ -56,19 +70,34 @@ settings_resource = ResourceDefinition.hardcoded_resource(
 
 
 # ---------------------------------------------------------------------------
-# Asset: fetch and store all observations (metadata only, no audio yet)
+# Helpers
 # ---------------------------------------------------------------------------
 
 
-@asset(required_resource_keys={"settings"})
+def _window(context: AssetExecutionContext) -> tuple[datetime, datetime]:
+    """Return (start, end) for the current daily partition as naive UTC datetimes."""
+    w = context.partition_time_window
+    return w.start.replace(tzinfo=None), w.end.replace(tzinfo=None)
+
+
+# ---------------------------------------------------------------------------
+# Asset: fetch and store observations for one day
+# ---------------------------------------------------------------------------
+
+
+@asset(
+    partitions_def=daily_partitions,
+    required_resource_keys={"settings"},
+)
 def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]:
-    """Fetch all SatNOGS observations for the satellite and persist to DB."""
+    """Fetch SatNOGS observations for the partition day and persist to DB."""
+    window_start, window_end = _window(context)
     settings: Settings = context.resources.settings  # type: ignore[attr-defined]
     client = SatnogsClient(settings)
     engine = make_engine(settings)
     factory = make_session_factory(engine)
 
-    observations = client.fetch_all_observations()
+    observations = client.fetch_all_observations(start=window_start, end=window_end)
     upserted = 0
     skipped = 0
 
@@ -76,7 +105,6 @@ def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]
         for obs in observations:
             row = get_observation_row(session, obs.observation_id)
             if row is not None and row.audio_data is not None:
-                # Already fully ingested — don't overwrite audio
                 skipped += 1
                 continue
             upsert_observation(session, obs, audio=None)
@@ -104,40 +132,44 @@ def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]
 
 
 # ---------------------------------------------------------------------------
-# Asset: download audio and store bytes into DB observations rows
+# Asset: download audio for one day's observations
 # ---------------------------------------------------------------------------
 
 
 @asset(
+    partitions_def=daily_partitions,
     required_resource_keys={"settings"},
     deps=[satnogs_observations],
 )
 def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
-    """Download audio for all observations that have a payload URL."""
+    """Download audio for all observations in the partition day that lack it."""
+    window_start, window_end = _window(context)
     settings: Settings = context.resources.settings  # type: ignore[attr-defined]
     client = SatnogsClient(settings)
     engine = make_engine(settings)
     factory = make_session_factory(engine)
 
     with session_scope(factory) as session:
-        # Find rows that have no audio yet but originated from SatNOGS
-        # We can't store audio_url in DB (no local paths policy extends to URLs
-        # stored purely for filesystem-style reference), so we re-fetch the
-        # observation list and cross-reference.
         observations_in_db: list[ObservationRow] = (
             session.query(ObservationRow)
             .filter_by(origin=DataOrigin.SATNOGS.value)
-            .filter(ObservationRow.audio_data.is_(None))
+            .filter(
+                ObservationRow.start_utc >= window_start,
+                ObservationRow.start_utc < window_end,
+                ObservationRow.audio_data.is_(None),
+            )
             .all()
         )
         external_ids_needing_audio = {row.external_id for row in observations_in_db}
 
     if not external_ids_needing_audio:
-        logger.info("All observations already have audio in DB.")
+        logger.info(
+            "All observations for {} already have audio.", context.partition_key
+        )
         return Output(pl.DataFrame({"observation_id": [], "downloaded": []}))
 
-    # Re-fetch metadata to get audio URLs (SatNOGS API is paginated)
-    all_observations = client.fetch_all_observations()
+    # Re-fetch the window to get audio URLs (not stored in DB by design).
+    all_observations = client.fetch_all_observations(start=window_start, end=window_end)
     to_download = [
         obs
         for obs in all_observations
@@ -152,7 +184,6 @@ def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         if audio is None:
             failed.append(obs.observation_id)
             continue
-
         with session_scope(factory) as session:
             upsert_observation(session, obs, audio=audio)
         downloaded.append(obs.observation_id)
@@ -170,16 +201,18 @@ def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
 
 
 # ---------------------------------------------------------------------------
-# Asset: demodulate all audio with gr_satellites
+# Asset: demodulate audio for one day
 # ---------------------------------------------------------------------------
 
 
 @asset(
+    partitions_def=daily_partitions,
     required_resource_keys={"settings"},
     deps=[downloaded_audio],
 )
 def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
-    """Run gr_satellites on every observation's stored audio."""
+    """Run gr_satellites on every observation in the partition day that has audio."""
+    window_start, window_end = _window(context)
     settings: Settings = context.resources.settings  # type: ignore[attr-defined]
     engine = make_engine(settings)
     factory = make_session_factory(engine)
@@ -188,18 +221,25 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         obs_rows: list[ObservationRow] = (
             session.query(ObservationRow)
             .filter_by(origin=DataOrigin.SATNOGS.value)
-            .filter(ObservationRow.audio_data.isnot(None))
+            .filter(
+                ObservationRow.start_utc >= window_start,
+                ObservationRow.start_utc < window_end,
+                ObservationRow.audio_data.isnot(None),
+            )
             .all()
         )
-        # Exclude observations that already have demod frames
+        obs_ids = {row.id for row in obs_rows}
         obs_with_frames: set[int] = {
             row.observation_id
-            for row in session.query(DemodFrameRow.observation_id).distinct().all()
+            for row in session.query(DemodFrameRow.observation_id)
+            .filter(DemodFrameRow.observation_id.in_(obs_ids))
+            .distinct()
+            .all()
         }
         to_demod = [row for row in obs_rows if row.id not in obs_with_frames]
 
     if not to_demod:
-        logger.info("No new observations to demodulate.")
+        logger.info("No new observations to demodulate for {}.", context.partition_key)
         return Output(pl.DataFrame({"observation_id": [], "frame_count": []}))
 
     audio_files = [
@@ -210,7 +250,6 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         )
         for row in to_demod
     ]
-    # Map external_id → db row id
     ext_to_db_id = {row.external_id: row.id for row in to_demod}
 
     runner = DemodRunner(max_workers=settings.max_parallel_demod)
@@ -227,9 +266,11 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
                 insert_demod_frames(session, db_obs_id, batch.frames)
             frame_counts[batch.observation_id] = len(batch.frames)
 
-    total_frames = sum(frame_counts.values())
     context.add_output_metadata(
-        {"observations_processed": len(batches), "total_frames": total_frames}
+        {
+            "observations_processed": len(batches),
+            "total_frames": sum(frame_counts.values()),
+        }
     )
 
     return Output(
@@ -243,48 +284,62 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
 
 
 # ---------------------------------------------------------------------------
-# Asset: decode hex frames into telemetry field/value pairs
+# Asset: decode frames for one day
 # ---------------------------------------------------------------------------
 
 
 @asset(
+    partitions_def=daily_partitions,
     required_resource_keys={"settings"},
     deps=[demodulated_frames],
 )
 def decoded_telemetry(context: AssetExecutionContext) -> Output[pl.DataFrame]:
-    """Decode all demod frames into named telemetry fields."""
+    """Decode all demod frames for the partition day into named telemetry fields."""
+    window_start, window_end = _window(context)
     settings: Settings = context.resources.settings  # type: ignore[attr-defined]
     engine = make_engine(settings)
     factory = make_session_factory(engine)
 
     with session_scope(factory) as session:
-        # Frames that haven't been decoded yet (no matching decoded_fields rows)
+        obs_rows: list[ObservationRow] = (
+            session.query(ObservationRow)
+            .filter(
+                ObservationRow.start_utc >= window_start,
+                ObservationRow.start_utc < window_end,
+            )
+            .all()
+        )
+        partition_obs_ids = {row.id for row in obs_rows}
+
+        all_frames: list[DemodFrameRow] = (
+            session.query(DemodFrameRow)
+            .filter(DemodFrameRow.observation_id.in_(partition_obs_ids))
+            .all()
+        )
+        partition_frame_ids = {f.id for f in all_frames}
 
         decoded_frame_ids: set[int] = {
             row.demod_frame_id
-            for row in session.query(DecodedFieldRow.demod_frame_id).distinct().all()
+            for row in session.query(DecodedFieldRow.demod_frame_id)
+            .filter(DecodedFieldRow.demod_frame_id.in_(partition_frame_ids))
+            .distinct()
+            .all()
         }
-        all_frames: list[DemodFrameRow] = session.query(DemodFrameRow).all()
         pending = [f for f in all_frames if f.id not in decoded_frame_ids]
 
-        obs_rows: list[ObservationRow] = session.query(ObservationRow).all()
-
     if not pending:
-        logger.info("No new frames to decode.")
+        logger.info("No new frames to decode for {}.", context.partition_key)
         return Output(pl.DataFrame({"field_name": [], "count": []}))
 
-    # Build lookup maps
     db_frame_id_map: dict[tuple[int, str], int] = {}
     for frame_row in pending:
         obs_row = next((o for o in obs_rows if o.id == frame_row.observation_id), None)
         if obs_row is None:
             continue
-        key = (obs_row.external_id, frame_row.hex_data)
-        db_frame_id_map[key] = frame_row.id
+        db_frame_id_map[(obs_row.external_id, frame_row.hex_data)] = frame_row.id
 
     db_obs_id_map: dict[int, int] = {row.external_id: row.id for row in obs_rows}
 
-    # Convert ORM rows to domain models for the decoder.
     domain_frames: list[DemodResult] = []
     for frame_row in pending:
         obs_row = next((o for o in obs_rows if o.id == frame_row.observation_id), None)
@@ -309,7 +364,6 @@ def decoded_telemetry(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     with session_scope(factory) as session:
         insert_decoded_fields(session, decoded)
 
-    # Summary by field name
     field_counts: dict[str, int] = {}
     for field in decoded:
         field_counts[field.field_name] = field_counts.get(field.field_name, 0) + 1
@@ -338,6 +392,7 @@ cts1_pipeline_job = define_asset_job(
         demodulated_frames,
         decoded_telemetry,
     ],
+    partitions_def=daily_partitions,
 )
 
 defs = Definitions(
