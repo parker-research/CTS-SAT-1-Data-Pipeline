@@ -8,10 +8,12 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
-# Import the ORM metadata so Alembic can autogenerate migrations
 from cts1_data_pipeline.database.schema import Base
+
+load_dotenv()  # reads the .env file
 
 config = context.config
 
