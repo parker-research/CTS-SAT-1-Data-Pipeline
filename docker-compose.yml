@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cts1
+      POSTGRES_PASSWORD: cts1
+      POSTGRES_DB: cts1
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cts1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  dagster-webserver:
+    build: .
+    command: dagster-webserver -h 0.0.0.0 -p 3000 -w workspace.yaml
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://cts1:cts1@postgres:5432/cts1
+      SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
+      # SATNOGS_DB_API_TOKEN: ${SATNOGS_DB_API_TOKEN}   # uncomment when needed
+      SATELLITE_NORAD: "69015"
+      GR_SATELLITES_CONFIG: /app/config/frontiersat.yml
+      MAX_PARALLEL_DEMOD: "4"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  dagster-daemon:
+    build: .
+    command: dagster-daemon run -w workspace.yaml
+    environment:
+      DATABASE_URL: postgresql+psycopg2://cts1:cts1@postgres:5432/cts1
+      SATNOGS_NETWORK_API_TOKEN: ${SATNOGS_NETWORK_API_TOKEN}
+      SATELLITE_NORAD: "69015"
+      GR_SATELLITES_CONFIG: /app/config/frontiersat.yml
+      MAX_PARALLEL_DEMOD: "4"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
