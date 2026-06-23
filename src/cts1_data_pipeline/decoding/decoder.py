@@ -8,13 +8,12 @@ layer.  This module provides a best-effort parser — extend it as the FRONTIERS
 ICD is further documented.
 """
 
+import logging
 from dataclasses import dataclass
 
-import logging
+from cts1_data_pipeline.models import DataOrigin, DecodedFrame, DemodResult
 
 log = logging.getLogger(__name__)
-
-from cts1_data_pipeline.models import DataOrigin, DecodedFrame, DemodResult
 
 
 @dataclass(frozen=True)

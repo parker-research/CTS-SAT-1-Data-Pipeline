@@ -1,13 +1,10 @@
 """Database engine, session factory, and repository-style helpers."""
 
+import logging
 from collections.abc import Generator
 from contextlib import contextmanager
 
 import sqlalchemy as sa
-import logging
-
-log = logging.getLogger(__name__)
-
 from sqlalchemy.orm import Session, sessionmaker
 
 from cts1_data_pipeline.database.schema import (
@@ -23,6 +20,8 @@ from cts1_data_pipeline.models import (
     SatnogsObservation,
 )
 from cts1_data_pipeline.settings import Settings
+
+log = logging.getLogger(__name__)
 
 
 def make_engine(settings: Settings) -> sa.Engine:

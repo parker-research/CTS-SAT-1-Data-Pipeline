@@ -4,6 +4,7 @@ Runs gr_satellites in parallel subprocesses (one per observation audio file)
 using a thread pool.  Parses the hexdump output into DemodResult dataclasses.
 """
 
+import logging
 import re
 import subprocess
 import tempfile
@@ -12,10 +13,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-import logging
-
-log = logging.getLogger(__name__)
-
 from cts1_data_pipeline.models import (
     AudioFile,
     DataOrigin,
@@ -23,6 +20,8 @@ from cts1_data_pipeline.models import (
     DemodBatch,
     DemodResult,
 )
+
+log = logging.getLogger(__name__)
 
 _SATELLITE_CONFIG = Path(__file__).parent / "frontiersat.yml"
 
@@ -90,7 +89,7 @@ def _run_gr_satellites_wav(
             batch.stderr = "timeout"
             return batch
         except FileNotFoundError:
-            log.error("gr_satellites not found in PATH")
+            log.exception("gr_satellites not found in PATH")
             batch.returncode = -2
             batch.stderr = "gr_satellites not found"
             return batch
@@ -156,7 +155,7 @@ class DemodRunner:
                 try:
                     batch = future.result()
                     batches.append(batch)
-                except Exception as exc:  # noqa: BLE001
-                    log.error("Unexpected error demodulating obs=%s: %s", obs_id, exc)
+                except Exception:
+                    log.exception("Unexpected error demodulating obs=%s", obs_id)
 
         return batches

@@ -1,18 +1,17 @@
 """SatNOGS Network API client."""
 
+import logging
 import re
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-import logging
-
 import requests
-
-log = logging.getLogger(__name__)
 
 from cts1_data_pipeline.models import AudioFile, SatnogsObservation
 from cts1_data_pipeline.settings import Settings
+
+log = logging.getLogger(__name__)
 
 _LINK_NEXT_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
 _DATETIME_FMT = "%Y-%m-%dT%H:%M:%S"
