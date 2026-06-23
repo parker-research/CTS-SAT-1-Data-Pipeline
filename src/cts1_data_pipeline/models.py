@@ -31,6 +31,7 @@ class SatnogsObservation:
     vetted_status: str
     audio_url: str | None
     waterfall_url: str | None
+    tle_line0: str | None
     tle_line1: str | None
     tle_line2: str | None
 

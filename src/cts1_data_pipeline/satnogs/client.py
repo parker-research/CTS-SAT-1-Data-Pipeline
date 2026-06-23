@@ -46,10 +46,11 @@ def _parse_observation(raw: dict[str, Any]) -> SatnogsObservation:
         transmitter=raw.get("transmitter", ""),
         status=raw.get("status", ""),
         vetted_status=raw.get("vetted_status", ""),
-        audio_url=raw.get("payload") or None,
-        waterfall_url=raw.get("waterfall") or None,
-        tle_line1=raw.get("tle0") or None,
-        tle_line2=raw.get("tle1") or None,
+        audio_url=raw.get("payload"),
+        waterfall_url=raw.get("waterfall"),
+        tle_line0=raw.get("tle0"),
+        tle_line1=raw.get("tle1"),
+        tle_line2=raw.get("tle2"),
     )
 
 

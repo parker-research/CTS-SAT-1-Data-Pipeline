@@ -82,6 +82,9 @@ def upsert_observation(
     row.transmitter = obs.transmitter
     row.status = obs.status
     row.vetted_status = obs.vetted_status
+    row.audio_url = obs.audio_url
+    row.waterfall_url = obs.waterfall_url
+    row.tle_line0 = obs.tle_line0
     row.tle_line1 = obs.tle_line1
     row.tle_line2 = obs.tle_line2
 
