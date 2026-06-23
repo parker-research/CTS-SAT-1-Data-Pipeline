@@ -10,7 +10,9 @@ ICD is further documented.
 
 from dataclasses import dataclass
 
-from loguru import logger
+import logging
+
+log = logging.getLogger(__name__)
 
 from cts1_data_pipeline.models import DataOrigin, DecodedFrame, DemodResult
 
@@ -49,7 +51,7 @@ def _decode_frame(hex_data: str) -> dict[str, str]:
     try:
         raw = bytes.fromhex(hex_data.replace(" ", ""))
     except ValueError:
-        logger.warning("Could not parse hex payload: {!r}", hex_data[:40])
+        log.warning("Could not parse hex payload: %r", hex_data[:40])
         return {}
 
     fields: dict[str, str] = {}
@@ -93,16 +95,14 @@ def decode_frames(
         demod_frame_id = db_frame_id_map.get((frame.observation_id, frame.hex_data))
         db_obs_id = db_obs_id_map.get(frame.observation_id)
         if demod_frame_id is None or db_obs_id is None:
-            logger.warning(
-                "No DB ID mapping for obs={} — skipping decoding.", frame.observation_id
+            log.warning(
+                "No DB ID mapping for obs=%s — skipping decoding.", frame.observation_id
             )
             continue
 
         fields = _decode_frame(frame.hex_data)
         if not fields:
-            logger.debug(
-                "obs={} frame produced no decoded fields.", frame.observation_id
-            )
+            log.debug("obs=%s frame produced no decoded fields.", frame.observation_id)
             continue
 
         for name, value in fields.items():
@@ -117,7 +117,7 @@ def decode_frames(
                 )
             )
 
-    logger.info(
-        "Decoded {} telemetry field records from {} frames.", len(decoded), len(frames)
+    log.info(
+        "Decoded %d telemetry field records from %d frames.", len(decoded), len(frames)
     )
     return decoded

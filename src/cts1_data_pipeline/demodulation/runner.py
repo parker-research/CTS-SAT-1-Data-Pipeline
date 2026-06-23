@@ -12,7 +12,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from loguru import logger
+import logging
+
+log = logging.getLogger(__name__)
 
 from cts1_data_pipeline.models import (
     AudioFile,
@@ -73,7 +75,7 @@ def _run_gr_satellites_wav(
             "--wavfile",
             tmp_path,
         ]
-        logger.debug("obs={} cmd={}", observation_id, " ".join(cmd))
+        log.debug("obs=%s cmd=%s", observation_id, " ".join(cmd))
 
         try:
             result = subprocess.run(  # noqa: PLW1510, S603
@@ -83,12 +85,12 @@ def _run_gr_satellites_wav(
                 timeout=300,
             )
         except subprocess.TimeoutExpired:
-            logger.warning("obs={} gr_satellites timed out", observation_id)
+            log.warning("obs=%s gr_satellites timed out", observation_id)
             batch.returncode = -1
             batch.stderr = "timeout"
             return batch
         except FileNotFoundError:
-            logger.error("gr_satellites not found in PATH")
+            log.error("gr_satellites not found in PATH")
             batch.returncode = -2
             batch.stderr = "gr_satellites not found"
             return batch
@@ -97,8 +99,8 @@ def _run_gr_satellites_wav(
     batch.stderr = result.stderr
 
     if result.returncode != 0:
-        logger.warning(
-            "obs={} gr_satellites exited {}: {}",
+        log.warning(
+            "obs=%s gr_satellites exited %s: %s",
             observation_id,
             result.returncode,
             result.stderr[:200],
@@ -119,8 +121,8 @@ def _run_gr_satellites_wav(
             )
         )
 
-    logger.info(
-        "obs={} decoded {} frames (algorithm={})",
+    log.info(
+        "obs=%s decoded %d frames (algorithm=%s)",
         observation_id,
         len(batch.frames),
         DemodAlgorithm.GR_SATELLITES_WAV.value,
@@ -155,8 +157,6 @@ class DemodRunner:
                     batch = future.result()
                     batches.append(batch)
                 except Exception as exc:  # noqa: BLE001
-                    logger.error(
-                        "Unexpected error demodulating obs={}: {}", obs_id, exc
-                    )
+                    log.error("Unexpected error demodulating obs=%s: %s", obs_id, exc)
 
         return batches

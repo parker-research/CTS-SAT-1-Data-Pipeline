@@ -4,7 +4,10 @@ from collections.abc import Generator
 from contextlib import contextmanager
 
 import sqlalchemy as sa
-from loguru import logger
+import logging
+
+log = logging.getLogger(__name__)
+
 from sqlalchemy.orm import Session, sessionmaker
 
 from cts1_data_pipeline.database.schema import (
@@ -25,7 +28,7 @@ from cts1_data_pipeline.settings import Settings
 def make_engine(settings: Settings) -> sa.Engine:
     """Create a SQLAlchemy engine from settings."""
     engine = sa.create_engine(settings.database_url, pool_pre_ping=True)
-    logger.info("Database engine created: {}", settings.database_url.split("@")[-1])
+    log.info("Database engine created: %s", settings.database_url.split("@")[-1])
     return engine
 
 

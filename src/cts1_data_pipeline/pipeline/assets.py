@@ -25,7 +25,6 @@ from dagster import (
     asset,
     define_asset_job,  # pyright: ignore[reportUnknownVariableType]
 )
-from loguru import logger
 
 from cts1_data_pipeline.database.repository import (
     get_observation_row,
@@ -110,7 +109,7 @@ def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]
             upsert_observation(session, obs, audio=None)
             upserted += 1
 
-    logger.info("upserted={} skipped={}", upserted, skipped)
+    context.log.info("upserted=%d skipped=%d", upserted, skipped)
 
     df = pl.DataFrame(
         {
@@ -163,8 +162,8 @@ def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         external_ids_needing_audio = {row.external_id for row in observations_in_db}
 
     if not external_ids_needing_audio:
-        logger.info(
-            "All observations for {} already have audio.", context.partition_key
+        context.log.info(
+            "All observations for %s already have audio.", context.partition_key
         )
         return Output(pl.DataFrame({"observation_id": [], "downloaded": []}))
 
@@ -239,7 +238,9 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         to_demod = [row for row in obs_rows if row.id not in obs_with_frames]
 
     if not to_demod:
-        logger.info("No new observations to demodulate for {}.", context.partition_key)
+        context.log.info(
+            "No new observations to demodulate for %s.", context.partition_key
+        )
         return Output(pl.DataFrame({"observation_id": [], "frame_count": []}))
 
     audio_files = [
@@ -260,7 +261,7 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         for batch in batches:
             db_obs_id = ext_to_db_id.get(batch.observation_id)
             if db_obs_id is None:
-                logger.warning("No DB row for obs ext_id={}", batch.observation_id)
+                context.log.warning("No DB row for obs ext_id=%s", batch.observation_id)
                 continue
             if batch.frames:
                 insert_demod_frames(session, db_obs_id, batch.frames)
@@ -328,7 +329,7 @@ def decoded_telemetry(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         pending = [f for f in all_frames if f.id not in decoded_frame_ids]
 
     if not pending:
-        logger.info("No new frames to decode for {}.", context.partition_key)
+        context.log.info("No new frames to decode for %s.", context.partition_key)
         return Output(pl.DataFrame({"field_name": [], "count": []}))
 
     db_frame_id_map: dict[tuple[int, str], int] = {}

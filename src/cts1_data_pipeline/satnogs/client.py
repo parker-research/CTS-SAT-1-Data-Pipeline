@@ -5,8 +5,11 @@ from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
+import logging
+
 import requests
-from loguru import logger
+
+log = logging.getLogger(__name__)
 
 from cts1_data_pipeline.models import AudioFile, SatnogsObservation
 from cts1_data_pipeline.settings import Settings
@@ -88,7 +91,7 @@ class SatnogsClient:
             params["start__lt"] = end.astimezone(UTC).strftime(_DATETIME_FMT)
 
         while url is not None:
-            logger.debug("GET {}", url)
+            log.debug("GET %s", url)
             r = requests.get(url, params=params, headers=self._headers, timeout=15)
             r.raise_for_status()
             page: list[dict[str, Any]] = r.json()
@@ -116,10 +119,8 @@ class SatnogsClient:
                 try:
                     observations.append(_parse_observation(raw))
                 except (KeyError, ValueError) as exc:
-                    logger.warning("Skipping malformed observation: {}", exc)
-        logger.info(
-            "Fetched {} observations for NORAD {}", len(observations), self._norad
-        )
+                    log.warning("Skipping malformed observation: %s", exc)
+        log.info("Fetched %d observations for NORAD %s", len(observations), self._norad)
         return observations
 
     # ------------------------------------------------------------------
@@ -129,8 +130,8 @@ class SatnogsClient:
     def download_audio(self, observation: SatnogsObservation) -> AudioFile | None:
         """Download the audio payload for an observation, or None if unavailable."""
         if observation.audio_url is None:
-            logger.debug(
-                "Observation {} has no audio URL — skipping.",
+            log.debug(
+                "Observation %s has no audio URL — skipping.",
                 observation.observation_id,
             )
             return None
@@ -142,15 +143,15 @@ class SatnogsClient:
             allow_redirects=True,
         )
         if not r.ok:
-            logger.warning(
-                "Failed to download audio for observation {}: HTTP {}",
+            log.warning(
+                "Failed to download audio for observation %s: HTTP %s",
                 observation.observation_id,
                 r.status_code,
             )
             return None
 
-        logger.info(
-            "Downloaded {:.1f} KB for observation {}",
+        log.info(
+            "Downloaded %.1f KB for observation %s",
             len(r.content) / 1024,
             observation.observation_id,
         )
