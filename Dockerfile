@@ -1,20 +1,24 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
-# gr_satellites system deps (GNU Radio, etc.) must be installed separately
-# on the host or via a custom base image.  This Dockerfile covers the Python
-# pipeline only.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY pyproject.toml .
-COPY cts1_data_pipeline/ cts1_data_pipeline/
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+COPY pyproject.toml uv.lock uv.toml ./
+
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY src/ src/
 COPY migrations/ migrations/
 COPY alembic.ini .
 COPY config/ config/
 
-RUN pip install --no-cache-dir -e .
+RUN uv sync --frozen --no-dev
 
-# Expose Dagster webserver port
 EXPOSE 3000
