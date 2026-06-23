@@ -8,16 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+# Store venv outside of the repo so that volume mount doesn't break
+# the venv inside and outside the container.
+ENV UV_PROJECT_ENVIRONMENT=/venv
 
-COPY pyproject.toml uv.lock uv.toml ./
+ENV PATH="/venv/bin:$PATH"
 
-RUN uv sync --frozen --no-dev --no-install-project
-
-COPY src/ src/
-COPY migrations/ migrations/
-COPY alembic.ini .
-COPY config/ config/
+COPY . /app
 
 RUN uv sync --frozen --no-dev
 
