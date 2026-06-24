@@ -1,19 +1,21 @@
 [project]
-name = "cts1-data-pipeline"
+name = "cts1_data_pipeline"
 version = "0.1.0"
 description = "Data processing pipeline for CTS-SAT-1 data"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "loguru",
-    "polars",
-    "numpy",
-    "requests>=2.34.2",
+    "dagster>=1.8",
+    "dagster-webserver>=1.8",
+    "requests>=2.32",
+    "polars>=1.0",
+    "dataframely>=0.5",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "psycopg2-binary>=2.9",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.2.2",
 ]
-
-[build-system]
-requires = ["uv_build>=0.11.23,<0.12"]
-build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
@@ -21,3 +23,41 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.15.18",
 ]
+
+[build-system]
+requires = ["uv_build>=0.11.23,<0.12"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "ALL",
+]
+ignore = [
+    "COM812",
+    "D203",
+    "D213",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "D1",
+]
+"migrations/**/*.py" = [
+    "D1",
+    "INP001", # Implicit namespace needs __init__.py
+]
+"migrations/versions/*.py" = [
+    "ALL", # Anything goes in this auto-gen code.
+]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
