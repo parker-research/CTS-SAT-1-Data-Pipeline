@@ -29,6 +29,10 @@ class Settings:
     # --- gr_satellites ---
     max_parallel_demod: int  # how many gr_satellites subprocesses to run at once
 
+    # --- Audio file storage ---
+    # Directory where downloaded audio files are stored on disk.
+    audio_storage_path: str = "/data/audio"
+
     # --- SatNOGS Network base URL (override for testing) ---
     satnogs_network_base_url: str = "https://network.satnogs.org/api"
 
@@ -52,6 +56,7 @@ class Settings:
             satellite_norad=int(_require("SATELLITE_NORAD")),
             database_url=_require("DATABASE_URL"),
             max_parallel_demod=int(os.environ.get("MAX_PARALLEL_DEMOD", "4")),
+            audio_storage_path=os.environ.get("AUDIO_STORAGE_PATH", "/data/audio"),
             satnogs_network_base_url=os.environ.get(
                 "SATNOGS_NETWORK_BASE_URL", "https://network.satnogs.org/api"
             ),

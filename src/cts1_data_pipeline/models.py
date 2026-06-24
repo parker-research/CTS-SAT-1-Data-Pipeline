@@ -3,6 +3,7 @@
 import enum
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 
 
 class DataOrigin(enum.StrEnum):
@@ -38,11 +39,10 @@ class SatnogsObservation:
 
 @dataclass(frozen=True)
 class AudioFile:
-    """In-memory audio payload fetched from SatNOGS."""
+    """Audio file on disk for one observation."""
 
     observation_id: int
-    content_type: str  # e.g. "audio/ogg"
-    data: bytes
+    path: Path
 
 
 @dataclass(frozen=True)

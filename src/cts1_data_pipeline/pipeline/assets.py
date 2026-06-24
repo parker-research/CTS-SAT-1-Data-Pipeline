@@ -14,6 +14,7 @@ of observations, so the pipeline is naturally incremental.
 """
 
 from datetime import datetime
+from pathlib import Path
 
 import polars as pl
 from dagster import (
@@ -27,7 +28,6 @@ from dagster import (
 )
 
 from cts1_data_pipeline.database.repository import (
-    get_observation_row,
     insert_decoded_fields,
     insert_demod_frames,
     make_engine,
@@ -97,19 +97,12 @@ def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]
     factory = make_session_factory(engine)
 
     observations = client.fetch_all_observations(start=window_start, end=window_end)
-    upserted = 0
-    skipped = 0
 
     with session_scope(factory) as session:
         for obs in observations:
-            row = get_observation_row(session, obs.observation_id)
-            if row is not None and row.audio_data is not None:
-                skipped += 1
-                continue
-            upsert_observation(session, obs, audio=None)
-            upserted += 1
+            upsert_observation(session, obs)
 
-    context.log.info("upserted=%d skipped=%d", upserted, skipped)
+    context.log.info("upserted/updated %d observations", len(observations))
 
     df = pl.DataFrame(
         {
@@ -141,59 +134,59 @@ def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]
     deps=[satnogs_observations],
 )
 def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
-    """Download audio for all observations in the partition day that lack it."""
+    """Download audio files for all observations in the partition day that lack them."""
     window_start, window_end = _window(context)
     settings: Settings = context.resources.settings  # type: ignore[attr-defined]
     client = SatnogsClient(settings)
     engine = make_engine(settings)
     factory = make_session_factory(engine)
+    audio_dir = Path(settings.audio_storage_path)
 
     with session_scope(factory) as session:
-        observations_in_db: list[ObservationRow] = (
+        obs_rows: list[ObservationRow] = (
             session.query(ObservationRow)
             .filter_by(origin=DataOrigin.SATNOGS.value)
             .filter(
                 ObservationRow.start_utc >= window_start,
                 ObservationRow.start_utc < window_end,
-                ObservationRow.audio_data.is_(None),
+                ObservationRow.audio_url.isnot(None),
             )
             .all()
         )
-        external_ids_needing_audio = {row.external_id for row in observations_in_db}
-
-    if not external_ids_needing_audio:
-        context.log.info(
-            "All observations for %s already have audio.", context.partition_key
-        )
-        return Output(pl.DataFrame({"observation_id": [], "downloaded": []}))
-
-    # Re-fetch the window to get audio URLs (not stored in DB by design).
-    all_observations = client.fetch_all_observations(start=window_start, end=window_end)
-    to_download = [
-        obs
-        for obs in all_observations
-        if obs.observation_id in external_ids_needing_audio
-    ]
 
     downloaded: list[int] = []
+    skipped: list[int] = []
     failed: list[int] = []
 
-    for obs in to_download:
-        audio = client.download_audio(obs)
-        if audio is None:
-            failed.append(obs.observation_id)
+    for row in obs_rows:
+        dest = audio_dir / f"{row.external_id}.ogg"
+        if dest.exists():
+            skipped.append(row.external_id)
             continue
-        with session_scope(factory) as session:
-            upsert_observation(session, obs, audio=audio)
-        downloaded.append(obs.observation_id)
+        assert row.audio_url is not None  # filtered above  # noqa: S101
+        ok = client.download_audio_to_file(row.audio_url, dest)
+        if ok:
+            downloaded.append(row.external_id)
+        else:
+            failed.append(row.external_id)
 
-    context.add_output_metadata({"downloaded": len(downloaded), "failed": len(failed)})
+    context.log.info(
+        "downloaded=%d skipped=%d failed=%d", len(downloaded), len(skipped), len(failed)
+    )
+    context.add_output_metadata(
+        {"downloaded": len(downloaded), "skipped": len(skipped), "failed": len(failed)}
+    )
 
+    obs_ids = downloaded + skipped + failed
     return Output(
         pl.DataFrame(
             {
-                "observation_id": downloaded + failed,
-                "downloaded": [True] * len(downloaded) + [False] * len(failed),
+                "observation_id": obs_ids,
+                "downloaded": (
+                    [True] * len(downloaded)
+                    + [False] * len(skipped)
+                    + [False] * len(failed)
+                ),
             }
         )
     )
@@ -212,9 +205,10 @@ def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
 def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     """Run gr_satellites on every observation in the partition day that has audio."""
     window_start, window_end = _window(context)
-    settings: Settings = context.resources.settings  # type: ignore[attr-defined]
+    settings: Settings = context.resources.settings
     engine = make_engine(settings)
     factory = make_session_factory(engine)
+    audio_dir = Path(settings.audio_storage_path)
 
     with session_scope(factory) as session:
         obs_rows: list[ObservationRow] = (
@@ -223,10 +217,13 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
             .filter(
                 ObservationRow.start_utc >= window_start,
                 ObservationRow.start_utc < window_end,
-                ObservationRow.audio_data.isnot(None),
             )
             .all()
         )
+        # Only consider observations whose audio file is present on disk.
+        obs_rows = [
+            row for row in obs_rows if (audio_dir / f"{row.external_id}.ogg").exists()
+        ]
         obs_ids = {row.id for row in obs_rows}
         obs_with_frames: set[int] = {
             row.observation_id
@@ -243,14 +240,14 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
         )
         return Output(pl.DataFrame({"observation_id": [], "frame_count": []}))
 
-    audio_files = [
+    audio_files: list[AudioFile] = [
         AudioFile(
             observation_id=row.external_id,
-            content_type=row.audio_content_type or "audio/ogg",
-            data=row.audio_data,  # type: ignore[arg-type]
+            path=audio_dir / f"{row.external_id}.ogg",
         )
         for row in to_demod
     ]
+
     ext_to_db_id = {row.external_id: row.id for row in to_demod}
 
     runner = DemodRunner(max_workers=settings.max_parallel_demod)

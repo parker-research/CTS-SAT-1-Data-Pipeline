@@ -7,7 +7,6 @@ using a thread pool.  Parses the hexdump output into DemodResult dataclasses.
 import logging
 import re
 import subprocess
-import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -53,46 +52,41 @@ def _parse_hexdump_line(line: str) -> tuple[datetime, str] | None:
 
 
 def _run_gr_satellites_wav(
-    audio_data: bytes,
+    audio_path: Path,
     observation_id: int,
 ) -> DemodBatch:
-    """Write audio to a temp file, run gr_satellites, parse hexdump output."""
+    """Run gr_satellites on an audio file on disk, parse hexdump output."""
     batch = DemodBatch(
         observation_id=observation_id,
         algorithm=DemodAlgorithm.GR_SATELLITES_WAV,
     )
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
-        tmp.write(audio_data)
-        tmp.flush()
-        tmp_path = tmp.name
+    cmd = [
+        "gr_satellites",
+        str(_SATELLITE_CONFIG),
+        "--hexdump",
+        "--wavfile",
+        str(audio_path),
+    ]
+    log.debug("obs=%s cmd=%s", observation_id, " ".join(cmd))
 
-        cmd = [
-            "gr_satellites",
-            str(_SATELLITE_CONFIG),
-            "--hexdump",
-            "--wavfile",
-            tmp_path,
-        ]
-        log.debug("obs=%s cmd=%s", observation_id, " ".join(cmd))
-
-        try:
-            result = subprocess.run(  # noqa: PLW1510, S603
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-        except subprocess.TimeoutExpired:
-            log.warning("obs=%s gr_satellites timed out", observation_id)
-            batch.returncode = -1
-            batch.stderr = "timeout"
-            return batch
-        except FileNotFoundError:
-            log.exception("gr_satellites not found in PATH")
-            batch.returncode = -2
-            batch.stderr = "gr_satellites not found"
-            return batch
+    try:
+        result = subprocess.run(  # noqa: PLW1510, S603
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        log.warning("obs=%s gr_satellites timed out", observation_id)
+        batch.returncode = -1
+        batch.stderr = "timeout"
+        return batch
+    except FileNotFoundError:
+        log.exception("gr_satellites not found in PATH")
+        batch.returncode = -2
+        batch.stderr = "gr_satellites not found"
+        return batch
 
     batch.returncode = result.returncode
     batch.stderr = result.stderr
@@ -145,7 +139,7 @@ class DemodRunner:
             futures = {
                 pool.submit(
                     _run_gr_satellites_wav,
-                    af.data,
+                    af.path,
                     af.observation_id,
                 ): af.observation_id
                 for af in audio_files

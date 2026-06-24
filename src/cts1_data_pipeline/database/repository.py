@@ -13,7 +13,6 @@ from cts1_data_pipeline.database.schema import (
     ObservationRow,
 )
 from cts1_data_pipeline.models import (
-    AudioFile,
     DataOrigin,
     DecodedFrame,
     DemodResult,
@@ -58,12 +57,14 @@ def session_scope(factory: sessionmaker[Session]) -> Generator[Session]:
 def upsert_observation(
     session: Session,
     obs: SatnogsObservation,
-    audio: AudioFile | None,
 ) -> ObservationRow:
     """Insert or update an observation row; return the persisted row."""
     existing = (
         session.query(ObservationRow)
-        .filter_by(origin=DataOrigin.SATNOGS.value, external_id=obs.observation_id)
+        .filter_by(
+            origin=DataOrigin.SATNOGS.value,
+            external_id=obs.observation_id,
+        )
         .one_or_none()
     )
 
@@ -87,10 +88,6 @@ def upsert_observation(
     row.tle_line0 = obs.tle_line0
     row.tle_line1 = obs.tle_line1
     row.tle_line2 = obs.tle_line2
-
-    if audio is not None:
-        row.audio_data = audio.data
-        row.audio_content_type = audio.content_type
 
     session.flush()
     return row

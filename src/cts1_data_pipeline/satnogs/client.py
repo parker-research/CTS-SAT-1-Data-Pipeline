@@ -4,11 +4,12 @@ import logging
 import re
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import requests
 
-from cts1_data_pipeline.models import AudioFile, SatnogsObservation
+from cts1_data_pipeline.models import SatnogsObservation
 from cts1_data_pipeline.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -127,36 +128,26 @@ class SatnogsClient:
     # Audio download
     # ------------------------------------------------------------------
 
-    def download_audio(self, observation: SatnogsObservation) -> AudioFile | None:
-        """Download the audio payload for an observation, or None if unavailable."""
-        if observation.audio_url is None:
-            log.debug(
-                "Observation %s has no audio URL — skipping.",
-                observation.observation_id,
-            )
-            return None
+    def download_audio_to_file(self, audio_url: str, dest: Path) -> bool:
+        """Download the audio at *audio_url* and write it to *dest*.
 
-        r = requests.get(
-            observation.audio_url,
-            headers=self._headers,
-            timeout=120,
-            allow_redirects=True,
-        )
-        if not r.ok:
-            log.warning(
-                "Failed to download audio for observation %s: HTTP %s",
-                observation.observation_id,
-                r.status_code,
-            )
-            return None
+        Returns True on success, False on HTTP or I/O errors.
+        """
+        try:
+            r = requests.get(audio_url, headers=self._headers, timeout=60, stream=True)
+            r.raise_for_status()
+        except requests.RequestException as exc:
+            log.warning("Failed to download audio from %s: %s", audio_url, exc)
+            return False
 
-        log.info(
-            "Downloaded %.1f KB for observation %s",
-            len(r.content) / 1024,
-            observation.observation_id,
-        )
-        return AudioFile(
-            observation_id=observation.observation_id,
-            content_type=r.headers.get("Content-Type", "audio/ogg"),
-            data=r.content,
-        )
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with dest.open("wb") as fh:
+                for chunk in r.iter_content(chunk_size=65536):
+                    fh.write(chunk)
+        except OSError as exc:
+            log.warning("Failed to write audio to %s: %s", dest, exc)
+            return False
+
+        log.debug("Downloaded audio → %s (%d bytes)", dest, dest.stat().st_size)
+        return True

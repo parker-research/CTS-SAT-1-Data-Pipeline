@@ -45,12 +45,6 @@ class ObservationRow(Base):
     audio_url: Mapped[str | None] = mapped_column(sa.String(256), nullable=True)
     waterfall_url: Mapped[str | None] = mapped_column(sa.String(256), nullable=True)
 
-    # Audio content stored inline; no local file paths.
-    audio_data: Mapped[bytes | None] = mapped_column(sa.LargeBinary, nullable=True)
-    audio_content_type: Mapped[str | None] = mapped_column(
-        sa.String(128), nullable=True
-    )
-
     # TLE snapshot at time of observation
     tle_line0: Mapped[str | None] = mapped_column(sa.String(256), nullable=True)
     tle_line1: Mapped[str | None] = mapped_column(sa.String(256), nullable=True)
