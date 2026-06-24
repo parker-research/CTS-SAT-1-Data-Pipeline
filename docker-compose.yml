@@ -34,6 +34,7 @@ services:
     volumes:
       - .:/app
       - dagster_home:/dagster_home
+      - data_store:/data
 
   dagster-daemon:
     build: .
@@ -50,7 +51,9 @@ services:
     volumes:
       - .:/app
       - dagster_home:/dagster_home
+      - data_store:/data
 
 volumes:
   postgres_data:
   dagster_home:
+  data_store:

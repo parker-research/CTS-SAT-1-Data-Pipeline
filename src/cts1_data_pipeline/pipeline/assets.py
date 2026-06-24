@@ -91,7 +91,7 @@ def _window(context: AssetExecutionContext) -> tuple[datetime, datetime]:
 def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     """Fetch SatNOGS observations for the partition day and persist to DB."""
     window_start, window_end = _window(context)
-    settings: Settings = context.resources.settings  # type: ignore[attr-defined]
+    settings: Settings = context.resources.settings
     client = SatnogsClient(settings)
     engine = make_engine(settings)
     factory = make_session_factory(engine)
@@ -136,11 +136,12 @@ def satnogs_observations(context: AssetExecutionContext) -> Output[pl.DataFrame]
 def downloaded_audio(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     """Download audio files for all observations in the partition day that lack them."""
     window_start, window_end = _window(context)
-    settings: Settings = context.resources.settings  # type: ignore[attr-defined]
+    settings: Settings = context.resources.settings
     client = SatnogsClient(settings)
     engine = make_engine(settings)
     factory = make_session_factory(engine)
     audio_dir = Path(settings.audio_storage_path)
+    audio_dir.mkdir(parents=True, exist_ok=True)
 
     with session_scope(factory) as session:
         obs_rows: list[ObservationRow] = (
@@ -294,7 +295,7 @@ def demodulated_frames(context: AssetExecutionContext) -> Output[pl.DataFrame]:
 def decoded_telemetry(context: AssetExecutionContext) -> Output[pl.DataFrame]:
     """Decode all demod frames for the partition day into named telemetry fields."""
     window_start, window_end = _window(context)
-    settings: Settings = context.resources.settings  # type: ignore[attr-defined]
+    settings: Settings = context.resources.settings
     engine = make_engine(settings)
     factory = make_session_factory(engine)
 
